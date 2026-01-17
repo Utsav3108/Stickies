@@ -19,31 +19,59 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  TabController? _tabController;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
+  int _previousCategoryCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _initTabController();
+    // Don't initialize here - do it in didChangeDependencies
   }
 
-  void _initTabController() {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     final categoryProvider = context.read<CategoryProvider>();
     final visibleCategories = categoryProvider.visibleCategories;
-    _tabController = TabController(
-      length: visibleCategories.length + 1,
-      vsync: this,
-    );
+    final newCount = visibleCategories.length + 1;
+
+    // Only create/recreate controller if count changed or controller is null
+    if (_tabController == null || _previousCategoryCount != newCount) {
+      _tabController?.dispose();
+      _tabController = TabController(
+        length: newCount,
+        vsync: this,
+      );
+      _previousCategoryCount = newCount;
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _rebuildTabControllerIfNeeded(int newLength) {
+    if (_tabController == null || _tabController!.length != newLength) {
+      // Save current index
+      final currentIndex = _tabController?.index ?? 0;
+
+      // Dispose old controller
+      _tabController?.dispose();
+
+      // Create new controller
+      _tabController = TabController(
+        length: newLength,
+        vsync: this,
+        initialIndex: currentIndex < newLength ? currentIndex : 0,
+      );
+      _previousCategoryCount = newLength;
+    }
   }
 
   @override
@@ -51,15 +79,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Consumer3<CategoryProvider, EntryProvider, SettingsProvider>(
       builder: (context, categoryProvider, entryProvider, settingsProvider, child) {
         final visibleCategories = categoryProvider.visibleCategories;
+        final newLength = visibleCategories.length + 1;
 
-        // Rebuild tab controller if categories changed
-        if (_tabController.length != visibleCategories.length + 1) {
-          _tabController.dispose();
-          _tabController = TabController(
-            length: visibleCategories.length + 1,
-            vsync: this,
-          );
-        }
+        // Rebuild tab controller if needed
+        _rebuildTabControllerIfNeeded(newLength);
 
         // Sort categories by count
         final sortedCategories = List<KVCategory>.from(visibleCategories)
@@ -70,6 +93,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           });
 
         final settings = settingsProvider.settings;
+
+        // Guard against null controller
+        if (_tabController == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -114,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(48),
               child: CategoryTabs(
-                tabController: _tabController,
+                tabController: _tabController!,
                 categories: sortedCategories,
                 entryProvider: entryProvider,
                 onMoreTapped: () {
@@ -145,19 +175,23 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               children: [
                 _buildEntryList('all', entryProvider),
                 ...sortedCategories.map(
-                      (cat) => _buildEntryList(cat?.id ?? "", entryProvider),
+                      (cat) => _buildEntryList(cat.id, entryProvider), // Fixed: removed unnecessary ?.
                 ),
               ],
             ),
           ),
           floatingActionButton: FloatingActionButton(
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const AddEntryScreen(),
                 ),
               );
+              // Refresh state after returning from add screen
+              if (mounted) {
+                setState(() {});
+              }
             },
             child: const Icon(Icons.add),
           ),

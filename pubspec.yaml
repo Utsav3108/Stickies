@@ -23,8 +23,9 @@ dependencies:
   cupertino_icons: ^1.0.6
 
   # File Handling
-  image_picker: ^1.0.5
-  file_picker: ^6.1.1
+  # File Handling - More compatible versions
+  image_picker: ^1.0.7
+  file_picker: ^8.0.0+1
 
   # Utils
   uuid: ^4.2.1

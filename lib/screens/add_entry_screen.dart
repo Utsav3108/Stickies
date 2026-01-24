@@ -1,12 +1,25 @@
 // lib/screens/add_entry_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
 import '../models/value_type.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
+import 'category_selection_modal.dart';
+
+// Color constants
+class AppColors {
+  static const background = Colors.black;
+  static const textPrimary = Colors.white;
+  static const textHint = Colors.white38;
+  static const saveButton = Color(0xFFA4F291);
+  static const textChip = Color(0xFFD8DD56);
+  static const photoChip = Color(0xFF7C74F5);
+  static const videoChip = Color(0xFFF5AA74);
+  static const activeOpacity = 1.0;
+  static const inactiveOpacity = 0.5;
+}
 
 class AddEntryScreen extends StatefulWidget {
   const AddEntryScreen({super.key});
@@ -16,93 +29,137 @@ class AddEntryScreen extends StatefulWidget {
 }
 
 class _AddEntryScreenState extends State<AddEntryScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _keyController = TextEditingController();
-  final _valueController = TextEditingController();
-  final _newCategoryController = TextEditingController();
+  final _titleController = TextEditingController();
+  final _textController = TextEditingController();
+  final _focusNode = FocusNode();
 
-  ValueType _selectedType = ValueType.text;
-  String? _selectedCategoryId;
+  ValueType _activeType = ValueType.text;
   String? _filePath;
-  bool _showNewCategory = false;
+  bool _titleManuallyEdited = false;
+  String? _selectedCategoryId; // Selected category ID
+  String _selectedCategoryName = 'General'; // Display name
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Auto-open keyboard
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+
+    // Listen to text changes to auto-generate title
+    _textController.addListener(_onTextChanged);
+
+    // Listen to title changes to detect manual editing
+    _titleController.addListener(_onTitleChanged);
+  }
 
   @override
   void dispose() {
-    _keyController.dispose();
-    _valueController.dispose();
-    _newCategoryController.dispose();
+    _titleController.dispose();
+    _textController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _pickFile() async {
-    try {
-      if (_selectedType == ValueType.image) {
-        final picker = ImagePicker();
-        final image = await picker.pickImage(source: ImageSource.gallery);
-        if (image != null) {
-          setState(() {
-            _filePath = image.path;
-          });
-        }
-      } else {
-        FileType fileType;
-        if (_selectedType == ValueType.audio) {
-          fileType = FileType.audio;
-        } else {
-          fileType = FileType.video;
-        }
+  // Auto-generate title from first 3 words
+  void _onTextChanged() {
+    if (_titleManuallyEdited || _activeType != ValueType.text) return;
 
-        final result = await FilePicker.platform.pickFiles(type: fileType);
-        if (result != null && result.files.single.path != null) {
-          setState(() {
-            _filePath = result.files.single.path;
-          });
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking file: $e')),
-      );
+    final text = _textController.text.trim();
+    if (text.isEmpty) {
+      _titleController.clear();
+      return;
+    }
+
+    // Get first 3 words
+    final words = text.split(RegExp(r'\s+'));
+    final firstThreeWords = words.take(3).join(' ');
+
+    // Only update if different to avoid cursor jumping
+    if (_titleController.text != firstThreeWords) {
+      _titleController.text = firstThreeWords;
     }
   }
 
+  // Detect manual title editing
+  void _onTitleChanged() {
+    // If user starts typing in title, mark as manually edited
+    if (_titleController.text.isNotEmpty) {
+      _titleManuallyEdited = true;
+    }
+  }
+
+  // ================= SAVE ENTRY =================
+
   Future<void> _saveEntry() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final categoryProvider = context.read<CategoryProvider>();
     final entryProvider = context.read<EntryProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
 
-    String categoryId;
-    if (_showNewCategory && _newCategoryController.text.isNotEmpty) {
-      await categoryProvider.addCategory(_newCategoryController.text);
-      categoryProvider.loadCategories();
-      categoryId = categoryProvider.categories
-          .firstWhere((c) => c.name == _newCategoryController.text)
-          .id;
-    } else if (_selectedCategoryId != null) {
-      categoryId = _selectedCategoryId!;
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a category')),
-      );
-      return;
+    String title = _titleController.text.trim();
+
+    // Auto-generate title if empty
+    if (title.isEmpty) {
+      if (_activeType == ValueType.text) {
+        final text = _textController.text.trim();
+        if (text.isEmpty) {
+          _showSnack('Please write something');
+          return;
+        }
+        // Generate from first 3 words
+        final words = text.split(RegExp(r'\s+'));
+        title = words.take(3).join(' ');
+      } else {
+        // For media, use type + timestamp
+        title = '${_activeType.name.toUpperCase()} ${DateTime.now().toString().substring(0, 16)}';
+      }
     }
 
-    String value = _selectedType == ValueType.text
-        ? _valueController.text
-        : (_filePath ?? '');
+    String value;
+    if (_activeType == ValueType.text) {
+      value = _textController.text.trim();
+      if (value.isEmpty) {
+        _showSnack('Please write something');
+        return;
+      }
+    } else {
+      value = _filePath ?? '';
+      if (value.isEmpty) {
+        _showSnack('Please select a file');
+        return;
+      }
+    }
 
-    if (_selectedType != ValueType.text && value.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file')),
+    // Handle category selection
+    String categoryId;
+
+    if (_selectedCategoryId != null) {
+      // User selected a category
+      categoryId = _selectedCategoryId!;
+    } else {
+      // No category selected, use or create "General"
+      if (categoryProvider.categories.isEmpty) {
+        await categoryProvider.addCategory('General');
+        await Future.delayed(const Duration(milliseconds: 100));
+        categoryProvider.loadCategories();
+      }
+
+      final generalCategory = categoryProvider.categories.firstWhere(
+            (cat) => cat.name.toLowerCase() == 'general',
+        orElse: () {
+          // Create General if it doesn't exist
+          return categoryProvider.categories.first;
+        },
       );
-      return;
+
+      categoryId = generalCategory.id;
     }
 
     await entryProvider.addEntry(
-      key: _keyController.text,
+      key: title,
       value: value,
-      valueType: _selectedType,
+      valueType: _activeType,
       categoryId: categoryId,
     );
 
@@ -111,185 +168,984 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Entry'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _saveEntry,
-          ),
-        ],
+  // ================= CATEGORY SELECTION MODAL =================
+
+  Future<void> _showCategoryPicker() async {
+    final categoryProvider = context.read<CategoryProvider>();
+
+    // Ensure General exists
+    if (categoryProvider.categories.isEmpty) {
+      await categoryProvider.addCategory('General');
+      categoryProvider.loadCategories();
+    }
+
+    final generalExists = categoryProvider.categories.any(
+          (cat) => cat.name.toLowerCase() == 'general',
+    );
+    if (!generalExists) {
+      await categoryProvider.addCategory('General');
+      categoryProvider.loadCategories();
+    }
+
+    final result = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CategoryPickerModal(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedCategoryId = result['id'];
+        _selectedCategoryName = result['name']!;
+      });
+    }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.white12,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+    );
+  }
+
+  // ================= CHIP HANDLER =================
+
+  void _onChipTap(ValueType type) async {
+    setState(() {
+      _activeType = type;
+      _filePath = null;
+      _titleManuallyEdited = false; // Reset when switching types
+    });
+
+    if (type == ValueType.text) {
+      _focusNode.requestFocus();
+      return;
+    }
+
+    await _openPicker(type);
+  }
+
+  // ================= PICKER =================
+
+  Future<void> _openPicker(ValueType type) async {
+    final picker = ImagePicker();
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1C1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(
-              controller: _keyController,
-              decoration: const InputDecoration(
-                labelText: 'Key *',
-                border: OutlineInputBorder(),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a key';
-                }
-                return null;
-              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.white),
+              title: const Text('Camera', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo, color: Colors.white),
+              title: const Text('Gallery', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<ValueType>(
-              value: _selectedType,
-              decoration: const InputDecoration(
-                labelText: 'Value Type',
-                border: OutlineInputBorder(),
-              ),
-              items: ValueType.values.map((type) {
-                return DropdownMenuItem(
-                  value: type,
-                  child: Text(type.name.toUpperCase()),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value!;
-                  _filePath = null;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            if (_selectedType == ValueType.text)
-              TextFormField(
-                controller: _valueController,
-                decoration: const InputDecoration(
-                  labelText: 'Value *',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 5,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a value';
-                  }
-                  return null;
-                },
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: _pickFile,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text('Select ${_selectedType.name.toUpperCase()}'),
-                  ),
-                  if (_filePath != null) ...[
-                    const SizedBox(height: 8),
-                    if (_selectedType == ValueType.image)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(_filePath!),
-                          height: 200,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _filePath!.split('/').last,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            const SizedBox(height: 16),
-            Consumer<CategoryProvider>(
-              builder: (context, categoryProvider, child) {
-                final categories = categoryProvider.categories;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!_showNewCategory) ...[
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategoryId,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: categories.map((cat) {
-                          return DropdownMenuItem(
-                            value: cat.id,
-                            child: Text(cat.name),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCategoryId = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _showNewCategory = true;
-                            _selectedCategoryId = null;
-                          });
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create New Category'),
-                      ),
-                    ] else ...[
-                      TextFormField(
-                        controller: _newCategoryController,
-                        decoration: const InputDecoration(
-                          labelText: 'New Category Name',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a category name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _showNewCategory = false;
-                            _newCategoryController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.arrow_back),
-                        label: const Text('Select Existing Category'),
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
           ],
         ),
       ),
     );
+
+    if (source == null) return;
+
+    if (type == ValueType.image) {
+      final img = await picker.pickImage(source: source);
+      if (img != null) {
+        setState(() => _filePath = img.path);
+        // Auto-generate title for image
+        if (!_titleManuallyEdited) {
+          _titleController.text = 'Photo ${DateTime.now().toString().substring(11, 16)}';
+        }
+      }
+    } else if (type == ValueType.video) {
+      final vid = await picker.pickVideo(source: source);
+      if (vid != null) {
+        setState(() => _filePath = vid.path);
+        // Auto-generate title for video
+        if (!_titleManuallyEdited) {
+          _titleController.text = 'Video ${DateTime.now().toString().substring(11, 16)}';
+        }
+      }
+    }
+  }
+
+  // ================= UI =================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: TextField(
+          controller: _titleController,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: const InputDecoration(
+            hintText: 'Title',
+            hintStyle: TextStyle(color: AppColors.textHint),
+            border: InputBorder.none,
+          ),
+          onTap: () {
+            // Mark as manually edited when user taps title field
+            _titleManuallyEdited = true;
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: _saveEntry,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.saveButton,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildChips(),
+                const SizedBox(height: 20),
+                Expanded(child: _buildContent()),
+                const SizedBox(height: 70), // Space for category button
+              ],
+            ),
+          ),
+          // Category selector button at bottom-left
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: GestureDetector(
+              onTap: _showCategoryPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2C2E),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(color: Colors.white24, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.label, size: 18, color: Colors.white70),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        _selectedCategoryName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.arrow_drop_down, size: 20, color: Colors.white70),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= CHIPS =================
+
+  Widget _buildChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _chip(
+            label: 'Text',
+            type: ValueType.text,
+            color: AppColors.textChip,
+            icon: Icons.chat_bubble_outline,
+          ),
+          const SizedBox(width: 12),
+          _chip(
+            label: 'Photo',
+            type: ValueType.image,
+            color: AppColors.photoChip,
+            icon: Icons.image_outlined,
+          ),
+          const SizedBox(width: 12),
+          _chip(
+            label: 'Video',
+            type: ValueType.video,
+            color: AppColors.videoChip,
+            icon: Icons.play_circle_outline,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required ValueType type,
+    required Color color,
+    required IconData icon,
+  }) {
+    final isActive = _activeType == type;
+
+    return GestureDetector(
+      onTap: () => _onChipTap(type),
+      child: Opacity(
+        opacity: isActive ? AppColors.activeOpacity : AppColors.inactiveOpacity,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Colors.black),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ================= CONTENT =================
+
+  Widget _buildContent() {
+    if (_activeType == ValueType.text) {
+      return TextField(
+        controller: _textController,
+        focusNode: _focusNode,
+        maxLines: null,
+        style: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 16,
+          height: 1.5,
+        ),
+        decoration: const InputDecoration(
+          hintText: 'Write your stickies...',
+          hintStyle: TextStyle(color: AppColors.textHint),
+          border: InputBorder.none,
+        ),
+      );
+    }
+
+    if (_filePath == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              _activeType == ValueType.image
+                  ? Icons.add_photo_alternate_outlined
+                  : Icons.video_library_outlined,
+              size: 64,
+              color: AppColors.textHint,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tap chip again to select ${_activeType.name}',
+              style: const TextStyle(color: AppColors.textHint),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_activeType == ValueType.image) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.file(
+              File(_filePath!),
+              fit: BoxFit.contain,
+              width: double.infinity,
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black54,
+              ),
+              onPressed: () {
+                setState(() {
+                  _filePath = null;
+                  _titleController.clear();
+                  _titleManuallyEdited = false;
+                });
+              },
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.play_circle_fill,
+            size: 72,
+            color: AppColors.videoChip,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _filePath!.split('/').last,
+            style: const TextStyle(color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: () {
+              setState(() {
+                _filePath = null;
+                _titleController.clear();
+                _titleManuallyEdited = false;
+              });
+            },
+            icon: const Icon(Icons.close),
+            label: const Text('Remove Video'),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+
+// // lib/screens/add_entry_screen.dart
+// import 'dart:io';
+// import 'package:flutter/material.dart';
+// import 'package:image_picker/image_picker.dart';
+// import 'package:provider/provider.dart';
+// import '../Theme/app_colors.dart';
+// import '../models/value_type.dart';
+// import '../providers/entry_provider.dart';
+// import '../providers/category_provider.dart';
+// import 'category_selection_modal.dart';
+//
+// class AddEntryScreen extends StatefulWidget {
+//   const AddEntryScreen({super.key});
+//
+//   @override
+//   State<AddEntryScreen> createState() => _AddEntryScreenState();
+// }
+//
+// class _AddEntryScreenState extends State<AddEntryScreen> {
+//   final _titleController = TextEditingController();
+//   final _textController = TextEditingController();
+//   final _focusNode = FocusNode();
+//
+//   ValueType _activeType = ValueType.text;
+//   String? _filePath;
+//   bool _titleManuallyEdited = false;
+//   String? _selectedCategoryId; // Selected category ID
+//   String _selectedCategoryName = 'General'; // Display name
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//
+//     // Auto-open keyboard
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       _focusNode.requestFocus();
+//     });
+//
+//     // Listen to text changes to auto-generate title
+//     _textController.addListener(_onTextChanged);
+//
+//     // Listen to title changes to detect manual editing
+//     _titleController.addListener(_onTitleChanged);
+//   }
+//
+//   @override
+//   void dispose() {
+//     _titleController.dispose();
+//     _textController.dispose();
+//     _focusNode.dispose();
+//     super.dispose();
+//   }
+//
+//   // Auto-generate title from first 3 words
+//   void _onTextChanged() {
+//     if (_titleManuallyEdited || _activeType != ValueType.text) return;
+//
+//     final text = _textController.text.trim();
+//     if (text.isEmpty) {
+//       _titleController.clear();
+//       return;
+//     }
+//
+//     // Get first 3 words
+//     final words = text.split(RegExp(r'\s+'));
+//     final firstThreeWords = words.take(3).join(' ');
+//
+//     // Only update if different to avoid cursor jumping
+//     if (_titleController.text != firstThreeWords) {
+//       _titleController.text = firstThreeWords;
+//     }
+//   }
+//
+//   // Detect manual title editing
+//   void _onTitleChanged() {
+//     // If user starts typing in title, mark as manually edited
+//     if (_titleController.text.isNotEmpty) {
+//       _titleManuallyEdited = true;
+//     }
+//   }
+//
+//   // ================= SAVE ENTRY =================
+//
+//   Future<void> _saveEntry() async {
+//     final entryProvider = context.read<EntryProvider>();
+//     final categoryProvider = context.read<CategoryProvider>();
+//
+//     String title = _titleController.text.trim();
+//
+//     // Auto-generate title if empty
+//     if (title.isEmpty) {
+//       if (_activeType == ValueType.text) {
+//         final text = _textController.text.trim();
+//         if (text.isEmpty) {
+//           _showSnack('Please write something');
+//           return;
+//         }
+//         // Generate from first 3 words
+//         final words = text.split(" ");
+//         title = words.take(3).join(' ');
+//       } else {
+//         // For media, use type + timestamp
+//         title = '${_activeType.name.toUpperCase()} ${DateTime.now().toString().substring(0, 16)}';
+//       }
+//     }
+//
+//     String value;
+//     if (_activeType == ValueType.text) {
+//       value = _textController.text.trim();
+//       if (value.isEmpty) {
+//         _showSnack('Please write something');
+//         return;
+//       }
+//     } else {
+//       value = _filePath ?? '';
+//       if (value.isEmpty) {
+//         _showSnack('Please select a file');
+//         return;
+//       }
+//     }
+//
+//     // Handle category selection
+//     String categoryId;
+//
+//     if (_selectedCategoryId != null) {
+//       // User selected a category
+//       categoryId = _selectedCategoryId!;
+//     } else {
+//       // No category selected, use or create "General"
+//       if (categoryProvider.categories.isEmpty) {
+//         await categoryProvider.addCategory('General');
+//         await Future.delayed(const Duration(milliseconds: 100));
+//         categoryProvider.loadCategories();
+//       }
+//
+//       final generalCategory = categoryProvider.categories.firstWhere(
+//             (cat) => cat.name.toLowerCase() == 'general',
+//         orElse: () {
+//           // Create General if it doesn't exist
+//           return categoryProvider.categories.first;
+//         },
+//       );
+//
+//       categoryId = generalCategory.id;
+//     }
+//
+//     await entryProvider.addEntry(
+//       key: title,
+//       value: value,
+//       valueType: _activeType,
+//       categoryId: categoryId,
+//     );
+//
+//     if (mounted) {
+//       Navigator.pop(context);
+//     }
+//   }
+//
+//   // ================= CATEGORY SELECTION MODAL =================
+//
+//   Future<void> _showCategoryPicker() async {
+//     final categoryProvider = context.read<CategoryProvider>();
+//
+//     // Ensure General exists
+//     if (categoryProvider.categories.isEmpty) {
+//       await categoryProvider.addCategory('General');
+//       categoryProvider.loadCategories();
+//     }
+//
+//     final generalExists = categoryProvider.categories.any(
+//           (cat) => cat.name.toLowerCase() == 'general',
+//     );
+//     if (!generalExists) {
+//       await categoryProvider.addCategory('General');
+//       categoryProvider.loadCategories();
+//     }
+//
+//     final result = await showModalBottomSheet<Map<String, String>>(
+//       context: context,
+//       isScrollControlled: true,
+//       backgroundColor: Colors.transparent,
+//       builder: (context) => const CategoryPickerModal(),
+//     );
+//
+//     if (result != null) {
+//       setState(() {
+//         _selectedCategoryId = result['id'];
+//         _selectedCategoryName = result['name']!;
+//       });
+//     }
+//   }
+//
+//   void _showSnack(String msg) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(
+//         content: Text(msg),
+//         backgroundColor: Colors.white12,
+//       ),
+//     );
+//   }
+//
+// // ================= CHIP HANDLER =================
+//
+//   void _onChipTap(ValueType type) async {
+//     setState(() {
+//       _activeType = type;
+//       _filePath = null;
+//       _titleManuallyEdited = false; // Reset when switching types
+//     });
+//
+//     if (type == ValueType.text) {
+//       _focusNode.requestFocus();
+//       return;
+//     }
+//
+//     await _openPicker(type);
+//   }
+//
+//   // ================= PICKER =================
+//
+//   Future<void> _openPicker(ValueType type) async {
+//     final picker = ImagePicker();
+//
+//     final source = await showModalBottomSheet<ImageSource>(
+//       context: context,
+//       backgroundColor: const Color(0xFF1C1C1E),
+//       shape: const RoundedRectangleBorder(
+//         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+//       ),
+//       builder: (_) => SafeArea(
+//         child: Column(
+//           mainAxisSize: MainAxisSize.min,
+//           children: [
+//             Container(
+//               margin: const EdgeInsets.symmetric(vertical: 12),
+//               width: 40,
+//               height: 4,
+//               decoration: BoxDecoration(
+//                 color: Colors.white24,
+//                 borderRadius: BorderRadius.circular(2),
+//               ),
+//             ),
+//             ListTile(
+//               leading: const Icon(Icons.camera_alt, color: Colors.white),
+//               title: const Text('Camera', style: TextStyle(color: Colors.white)),
+//               onTap: () => Navigator.pop(context, ImageSource.camera),
+//             ),
+//             ListTile(
+//               leading: const Icon(Icons.photo, color: Colors.white),
+//               title: const Text('Gallery', style: TextStyle(color: Colors.white)),
+//               onTap: () => Navigator.pop(context, ImageSource.gallery),
+//             ),
+//             const SizedBox(height: 16),
+//           ],
+//         ),
+//       ),
+//     );
+//
+//     if (source == null) return;
+//
+//     if (type == ValueType.image) {
+//       final img = await picker.pickImage(source: source);
+//       if (img != null) {
+//         setState(() => _filePath = img.path);
+//         // Auto-generate title for image
+//         if (!_titleManuallyEdited) {
+//           _titleController.text = 'Photo ${DateTime.now().toString().substring(11, 16)}';
+//         }
+//       }
+//     } else if (type == ValueType.video) {
+//       final vid = await picker.pickVideo(source: source);
+//       if (vid != null) {
+//         setState(() => _filePath = vid.path);
+//         // Auto-generate title for video
+//         if (!_titleManuallyEdited) {
+//           _titleController.text = 'Video ${DateTime.now().toString().substring(11, 16)}';
+//         }
+//       }
+//     }
+//   }
+//
+//   // ================= UI =================
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: AppColors.background,
+//       appBar: AppBar(
+//         backgroundColor: Colors.black,
+//         elevation: 0,
+//         leading: IconButton(
+//           icon: const Icon(Icons.close, color: AppColors.textPrimary),
+//           onPressed: () => Navigator.pop(context),
+//         ),
+//         title: TextField(
+//           controller: _titleController,
+//           style: const TextStyle(
+//             color: AppColors.textPrimary,
+//             fontSize: 18,
+//             fontWeight: FontWeight.w600,
+//           ),
+//           decoration: InputDecoration(
+//             hintText: _activeType == ValueType.text
+//                 ? 'Title (auto-generated)'
+//                 : 'Title',
+//             hintStyle: const TextStyle(color: AppColors.textHint),
+//             border: InputBorder.none,
+//           ),
+//           onTap: () {
+//             // Mark as manually edited when user taps title field
+//             _titleManuallyEdited = true;
+//           },
+//         ),
+//         actions: [
+//           TextButton(
+//             onPressed: _saveEntry,
+//             child: Container(
+//               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//               decoration: BoxDecoration(
+//                 color: AppColors.saveButton,
+//                 borderRadius: BorderRadius.circular(20),
+//               ),
+//               child: const Text(
+//                 'Save',
+//                 style: TextStyle(
+//                   color: Colors.black,
+//                   fontWeight: FontWeight.bold,
+//                   fontSize: 16,
+//                 ),
+//               ),
+//             ),
+//           ),
+//           const SizedBox(width: 8),
+//         ],
+//       ),
+//       body: Padding(
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             Row(
+//               children: [
+//                 Expanded(child: _buildChips()),
+//                 const SizedBox(width: 12),
+//                 // Category selector button
+//                 GestureDetector(
+//                   onTap: _showCategoryPicker,
+//                   child: Container(
+//                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//                     decoration: BoxDecoration(
+//                       color: const Color(0xFF2C2C2E),
+//                       borderRadius: BorderRadius.circular(20),
+//                       border: Border.all(color: Colors.white24),
+//                     ),
+//                     child: Row(
+//                       mainAxisSize: MainAxisSize.min,
+//                       children: [
+//                         const Icon(Icons.label_outline, size: 16, color: Colors.white70),
+//                         const SizedBox(width: 6),
+//                         ConstrainedBox(
+//                           constraints: const BoxConstraints(maxWidth: 80),
+//                           child: Text(
+//                             _selectedCategoryName,
+//                             style: const TextStyle(
+//                               color: Colors.white70,
+//                               fontSize: 13,
+//                               fontWeight: FontWeight.w600,
+//                             ),
+//                             overflow: TextOverflow.ellipsis,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 4),
+//                         const Icon(Icons.arrow_drop_down, size: 18, color: Colors.white70),
+//                       ],
+//                     ),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//             const SizedBox(height: 20),
+//             Expanded(child: _buildContent()),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // ================= CHIPS =================
+//
+//   Widget _buildChips() {
+//     return SingleChildScrollView(
+//       scrollDirection: Axis.horizontal,
+//       child: Row(
+//         children: [
+//           _chip(
+//             label: 'Text',
+//             type: ValueType.text,
+//             color: AppColors.textChip,
+//             icon: Icons.chat_bubble_outline,
+//           ),
+//           const SizedBox(width: 12),
+//           _chip(
+//             label: 'Photo',
+//             type: ValueType.image,
+//             color: AppColors.photoChip,
+//             icon: Icons.image_outlined,
+//           ),
+//           const SizedBox(width: 12),
+//           _chip(
+//             label: 'Video',
+//             type: ValueType.video,
+//             color: AppColors.videoChip,
+//             icon: Icons.play_circle_outline,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _chip({
+//     required String label,
+//     required ValueType type,
+//     required Color color,
+//     required IconData icon,
+//   }) {
+//     final isActive = _activeType == type;
+//
+//     return GestureDetector(
+//       onTap: () => _onChipTap(type),
+//       child: Opacity(
+//         opacity: isActive ? AppColors.activeOpacity : AppColors.inactiveOpacity,
+//         child: Container(
+//           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+//           decoration: BoxDecoration(
+//             color: color,
+//             borderRadius: BorderRadius.circular(30),
+//           ),
+//           child: Row(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               Icon(icon, size: 18, color: Colors.black),
+//               const SizedBox(width: 6),
+//               Text(
+//                 label,
+//                 style: const TextStyle(
+//                   color: Colors.black,
+//                   fontSize: 14,
+//                   fontWeight: FontWeight.w700,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // ================= CONTENT =================
+//
+//   Widget _buildContent() {
+//     if (_activeType == ValueType.text) {
+//       return TextField(
+//         controller: _textController,
+//         focusNode: _focusNode,
+//         maxLines: null,
+//         style: const TextStyle(
+//           color: AppColors.textPrimary,
+//           fontSize: 16,
+//           height: 1.5,
+//         ),
+//         decoration: const InputDecoration(
+//           hintText: 'Write your stickies...',
+//           hintStyle: TextStyle(color: AppColors.textHint),
+//           border: InputBorder.none,
+//         ),
+//       );
+//     }
+//
+//     if (_filePath == null) {
+//       return Center(
+//         child: Column(
+//           mainAxisAlignment: MainAxisAlignment.center,
+//           children: [
+//             Icon(
+//               _activeType == ValueType.image
+//                   ? Icons.add_photo_alternate_outlined
+//                   : Icons.video_library_outlined,
+//               size: 64,
+//               color: AppColors.textHint,
+//             ),
+//             const SizedBox(height: 16),
+//             Text(
+//               'Tap chip again to select ${_activeType.name}',
+//               style: const TextStyle(color: AppColors.textHint),
+//             ),
+//           ],
+//         ),
+//       );
+//     }
+//
+//     if (_activeType == ValueType.image) {
+//       return Stack(
+//         children: [
+//           ClipRRect(
+//             borderRadius: BorderRadius.circular(14),
+//             child: Image.file(
+//               File(_filePath!),
+//               fit: BoxFit.contain,
+//               width: double.infinity,
+//             ),
+//           ),
+//           Positioned(
+//             top: 8,
+//             right: 8,
+//             child: IconButton(
+//               icon: const Icon(Icons.close, color: Colors.white),
+//               style: IconButton.styleFrom(
+//                 backgroundColor: Colors.black54,
+//               ),
+//               onPressed: () {
+//                 setState(() {
+//                   _filePath = null;
+//                   _titleController.clear();
+//                   _titleManuallyEdited = false;
+//                 });
+//               },
+//             ),
+//           ),
+//         ],
+//       );
+//     }
+//
+//     return Center(
+//       child: Column(
+//         mainAxisAlignment: MainAxisAlignment.center,
+//         children: [
+//           const Icon(
+//             Icons.play_circle_fill,
+//             size: 72,
+//             color: AppColors.videoChip,
+//           ),
+//           const SizedBox(height: 16),
+//           Text(
+//             _filePath!.split('/').last,
+//             style: const TextStyle(color: AppColors.textPrimary),
+//             textAlign: TextAlign.center,
+//           ),
+//           const SizedBox(height: 16),
+//           TextButton.icon(
+//             onPressed: () {
+//               setState(() {
+//                 _filePath = null;
+//                 _titleController.clear();
+//                 _titleManuallyEdited = false;
+//               });
+//             },
+//             icon: const Icon(Icons.close),
+//             label: const Text('Remove Video'),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }

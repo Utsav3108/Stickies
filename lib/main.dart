@@ -1,11 +1,11 @@
 // lib/main.dart
+import 'package:datastock/screens/redesigned_home.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/storage_service.dart';
 import 'providers/category_provider.dart';
 import 'providers/entry_provider.dart';
 import 'providers/settings_provider.dart';
-import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

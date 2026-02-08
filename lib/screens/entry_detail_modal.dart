@@ -8,7 +8,7 @@ import '../models/key_value_entry.dart';
 import '../models/value_type.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
-import 'edit_entry_screen.dart';
+import 'add_entry_screen.dart';
 
 class EntryDetailModal extends StatelessWidget {
   final KeyValueEntry entry;
@@ -163,7 +163,7 @@ class EntryDetailModal extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => EditEntryScreen(entry: entry),
+                            builder: (context) => EntryFormScreen(entry: entry), // Changed
                           ),
                         );
                       },

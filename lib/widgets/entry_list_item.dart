@@ -1,13 +1,13 @@
 
 // lib/widgets/entry_list_item.dart
 import 'dart:io';
+import 'package:datastock/screens/add_entry_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/key_value_entry.dart';
 import '../models/value_type.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
-import '../screens/edit_entry_screen.dart';
 
 class EntryListItem extends StatelessWidget {
   final KeyValueEntry entry;
@@ -81,7 +81,7 @@ class EntryListItem extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => EditEntryScreen(entry: entry),
+                      builder: (context) => EntryFormScreen(entry: entry),
                     ),
                   );
                 });

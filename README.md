@@ -1,4 +1,4 @@
-# data_stock
+# Stickies
 
 A new Flutter project.
 

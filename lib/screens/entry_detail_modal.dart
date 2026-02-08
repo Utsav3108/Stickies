@@ -88,7 +88,7 @@ class EntryDetailModal extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Chip(
-                      label: Text(category.name),
+                      label: Text(category.name, style: TextStyle(color: Colors.white),),
                       backgroundColor: Colors.black12,
                       labelStyle: const TextStyle(
                         color: Colors.black87,

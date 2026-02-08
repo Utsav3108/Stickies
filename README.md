@@ -1,0 +1,2 @@
+# Stickies
+Your thoughts, organised.

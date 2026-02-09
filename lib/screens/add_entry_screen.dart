@@ -10,6 +10,7 @@ import '../models/key_value_entry.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
 import 'category_selection.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class EntryFormScreen extends StatefulWidget {
   final KeyValueEntry? entry; // null for add, non-null for edit
@@ -220,18 +221,29 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
   }
 
   void _showSnack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.white12,
-      ),
+
+
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: AppColors.textHint,
+      textColor: Colors.white,
+      fontSize: 14.0,
     );
+    //
+    // ScaffoldMessenger.of(context).showSnackBar(
+    //   SnackBar(
+    //     content: Text(msg),
+    //     backgroundColor: Colors.white12,
+    //   ),
+    // );
   }
 
   // ================= CHIP HANDLER =================
 
   void _onChipTap(ValueType type) async {
-    // In edit mode, don't allow changing media types
+    //In edit mode, don't allow changing media types
     if (isEditMode && type != _activeType) {
       _showSnack('Cannot change type when editing');
       return;
@@ -470,7 +482,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     final isDisabled = isEditMode && type != _activeType;
 
     return GestureDetector(
-      onTap: isDisabled ? null : () => _onChipTap(type),
+      onTap: () => _onChipTap(type),
       child: Opacity(
         opacity: isDisabled
             ? 0.3

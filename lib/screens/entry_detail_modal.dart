@@ -2,8 +2,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import '../Theme/app_colors.dart';
+import '../Theme/app_theme.dart';
 import '../models/key_value_entry.dart';
 import '../models/value_type.dart';
 import '../providers/entry_provider.dart';
@@ -268,11 +271,7 @@ class EntryDetailModal extends StatelessWidget {
       case ValueType.text:
         return SelectableText(
           entry.value,
-          style: const TextStyle(
-            fontSize: 18,
-            color: Colors.black87,
-            height: 1.5,
-          ),
+          style: AppTheme.bodyStyle(size: 18),
         );
       case ValueType.image:
         if (entry.value.isNotEmpty && File(entry.value).existsSync()) {

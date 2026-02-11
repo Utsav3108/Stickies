@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:local_auth/local_auth.dart';
 import 'services/storage_service.dart';
@@ -37,6 +38,7 @@ class MyApp extends StatelessWidget {
           ),
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
+          textTheme: GoogleFonts.interTextTheme(),
         ),
         home: const SplashScreen(),
       ),

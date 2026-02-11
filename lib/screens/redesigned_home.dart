@@ -2,7 +2,9 @@
 import 'dart:io';
 import 'package:datastock/models/key_value_entry.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../Theme/app_theme.dart';
 import '../providers/category_provider.dart';
 import '../providers/entry_provider.dart';
 import '../providers/settings_provider.dart';
@@ -365,11 +367,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case ValueType.text:
         return Text(
           entry.value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTheme.bodyStyle(),
           maxLines: 5,
           overflow: TextOverflow.ellipsis,
         );

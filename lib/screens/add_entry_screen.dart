@@ -1,6 +1,7 @@
 
 // lib/screens/entry_form_screen.dart
 import 'dart:io';
+import 'package:datastock/Theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +12,7 @@ import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
 import 'category_selection.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class EntryFormScreen extends StatefulWidget {
   final KeyValueEntry? entry; // null for add, non-null for edit
@@ -221,8 +223,6 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
   }
 
   void _showSnack(String msg) {
-
-
     Fluttertoast.showToast(
       msg: msg,
       toastLength: Toast.LENGTH_SHORT,
@@ -231,13 +231,6 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       textColor: Colors.white,
       fontSize: 14.0,
     );
-    //
-    // ScaffoldMessenger.of(context).showSnackBar(
-    //   SnackBar(
-    //     content: Text(msg),
-    //     backgroundColor: Colors.white12,
-    //   ),
-    // );
   }
 
   // ================= CHIP HANDLER =================
@@ -521,14 +514,15 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
         controller: _textController,
         focusNode: _focusNode,
         maxLines: null,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          height: 1.5,
-        ),
-        decoration: const InputDecoration(
+        style: AppTheme.bodyStyle(size: 18, color: AppColors.textPrimary),
+        decoration: InputDecoration(
           hintText: 'Write your stickies...',
-          hintStyle: TextStyle(color: AppColors.textHint),
+          hintStyle: GoogleFonts.nunito(
+            color: AppColors.textHint,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          )
+          ,
           border: InputBorder.none,
         ),
       );

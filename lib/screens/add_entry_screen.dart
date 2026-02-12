@@ -11,7 +11,6 @@ import '../models/key_value_entry.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
 import 'category_selection.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class EntryFormScreen extends StatefulWidget {
@@ -72,12 +71,6 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
         _focusNode.requestFocus();
       });
     }
-
-    // Listen to text changes to auto-generate title (only for new entries)
-    _textController.addListener(_onTextChanged);
-
-    // Listen to title changes to detect manual editing
-    _titleController.addListener(_onTitleChanged);
   }
 
   @override
@@ -86,31 +79,6 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     _textController.dispose();
     _focusNode.dispose();
     super.dispose();
-  }
-
-  // Auto-generate title from first 3 words (only for new text entries)
-  void _onTextChanged() {
-    if (isEditMode || _titleManuallyEdited || _activeType != ValueType.text)
-      return;
-
-    final text = _textController.text.trim();
-    if (text.isEmpty) {
-      _titleController.clear();
-      return;
-    }
-
-    final words = text.split(RegExp(r'\s+'));
-    final firstThreeWords = words.take(3).join(' ');
-
-    if (_titleController.text != firstThreeWords) {
-      _titleController.text = firstThreeWords;
-    }
-  }
-
-  void _onTitleChanged() {
-    if (_titleController.text.isNotEmpty) {
-      _titleManuallyEdited = true;
-    }
   }
 
   // ================= SAVE ENTRY =================

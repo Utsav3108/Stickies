@@ -1,5 +1,6 @@
 // lib/screens/entry_detail_modal.dart
 import 'dart:io';
+import 'package:datastock/Utils/app_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -38,8 +39,10 @@ class EntryDetailModal extends StatelessWidget {
     final category = categoryProvider.getCategoryById(entry.categoryId);
 
     // Determine which actions to show based on content type
-    final showCopy = entry.valueType == ValueType.text || entry.valueType == ValueType.image;
-    final showShare = entry.valueType == ValueType.text || entry.valueType == ValueType.image;
+    final showCopy =
+        entry.valueType == ValueType.text || entry.valueType == ValueType.image;
+    final showShare =
+        entry.valueType == ValueType.text || entry.valueType == ValueType.image;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
@@ -52,15 +55,18 @@ class EntryDetailModal extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Handle bar
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(2),
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               // Header
@@ -91,7 +97,10 @@ class EntryDetailModal extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Chip(
-                      label: Text(category.name, style: TextStyle(color: Colors.white),),
+                      label: Text(
+                        category.name,
+                        style: TextStyle(color: Colors.white),
+                      ),
                       backgroundColor: Colors.black12,
                       labelStyle: const TextStyle(
                         color: Colors.black87,
@@ -100,7 +109,6 @@ class EntryDetailModal extends StatelessWidget {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
               // Content
               Expanded(
                 child: SingleChildScrollView(
@@ -108,21 +116,22 @@ class EntryDetailModal extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: entry.isHidden
                       ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock, size: 64, color: Colors.black38),
-                        const SizedBox(height: 16),
-                        Text(
-                          'This note is hidden',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.black.withOpacity(0.6),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.lock,
+                                  size: 64, color: Colors.black38),
+                              const SizedBox(height: 16),
+                              Text(
+                                'This note is hidden',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.black.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  )
+                        )
                       : _buildContent(),
                 ),
               ),
@@ -143,20 +152,27 @@ class EntryDetailModal extends StatelessWidget {
                         icon: Icons.copy,
                         label: 'Copy',
                         onTap: () => _copyToClipboard(context),
+                        isDisabledForHidden: entry.isHidden,
                       ),
                     if (showShare)
                       _buildActionButton(
                         icon: Icons.share,
                         label: 'Share',
                         onTap: () => _shareContent(context),
+                        isDisabledForHidden: entry.isHidden,
                       ),
                     _buildActionButton(
-                      icon: entry.isHidden ? Icons.visibility : Icons.visibility_off,
+                      icon: entry.isHidden
+                          ? Icons.visibility
+                          : Icons.visibility_off,
                       label: entry.isHidden ? 'Show' : 'Hide',
                       onTap: () {
-                        context.read<EntryProvider>().toggleEntryVisibility(entry);
+                        context
+                            .read<EntryProvider>()
+                            .toggleEntryVisibility(entry);
                         Navigator.pop(context);
                       },
+                      isDisabledForHidden: false,
                     ),
                     _buildActionButton(
                       icon: Icons.edit,
@@ -166,10 +182,12 @@ class EntryDetailModal extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => EntryFormScreen(entry: entry), // Changed
+                            builder: (context) =>
+                                EntryFormScreen(entry: entry), // Changed
                           ),
                         );
                       },
+                      isDisabledForHidden: entry.isHidden,
                     ),
                     _buildActionButton(
                       icon: Icons.delete,
@@ -178,6 +196,7 @@ class EntryDetailModal extends StatelessWidget {
                       onTap: () {
                         _showDeleteConfirmation(context);
                       },
+                      isDisabledForHidden: entry.isHidden,
                     ),
                   ],
                 ),
@@ -194,37 +213,12 @@ class EntryDetailModal extends StatelessWidget {
       if (entry.valueType == ValueType.text) {
         // Copy text content
         await Clipboard.setData(ClipboardData(text: entry.value));
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Text copied to clipboard'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
       } else if (entry.valueType == ValueType.image) {
         // For images, copy the file path (you can enhance this to copy actual image data)
         await Clipboard.setData(ClipboardData(text: 'Image: ${entry.key}'));
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image info copied to clipboard'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to copy: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print("Error in Clipboard: ${e.toString()}");
     }
   }
 
@@ -243,26 +237,10 @@ class EntryDetailModal extends StatelessWidget {
             [XFile(entry.value)],
             text: entry.key,
           );
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Image file not found'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
+        } else {}
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to share: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print("Error on Sharing: ${e.toString()}");
     }
   }
 
@@ -297,7 +275,8 @@ class EntryDetailModal extends StatelessWidget {
                   height: 300,
                   color: Colors.black26,
                   child: const Center(
-                    child: Icon(Icons.videocam, size: 64, color: Colors.white70),
+                    child:
+                        Icon(Icons.videocam, size: 64, color: Colors.white70),
                   ),
                 ),
                 const Icon(
@@ -309,7 +288,8 @@ class EntryDetailModal extends StatelessWidget {
                   bottom: 12,
                   left: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.black54,
                       borderRadius: BorderRadius.circular(4),
@@ -334,11 +314,12 @@ class EntryDetailModal extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.black12,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.audiotrack, size: 64, color: Colors.black87),
+                child: const Icon(Icons.audiotrack,
+                    size: 64, color: Colors.black87),
               ),
               const SizedBox(height: 16),
               if (entry.duration != null)
@@ -370,9 +351,14 @@ class EntryDetailModal extends StatelessWidget {
     required String label,
     required VoidCallback onTap,
     Color? color,
+    bool isDisabledForHidden = false,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: isDisabledForHidden
+          ? () => AppMessaging.showToast(
+              "Action not available for hidden notes.",
+              color: Colors.black87)
+          : onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -392,7 +378,11 @@ class EntryDetailModal extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(icon, color: color ?? Colors.black87, size: 24),
+              child: Icon(icon,
+                  color: isDisabledForHidden
+                      ? Colors.grey
+                      : color ?? Colors.black87,
+                  size: 24),
             ),
             const SizedBox(height: 4),
             Text(
@@ -425,7 +415,8 @@ class EntryDetailModal extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.white70)),
           ),
           TextButton(
             onPressed: () {

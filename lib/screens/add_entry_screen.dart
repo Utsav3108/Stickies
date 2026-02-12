@@ -1,7 +1,7 @@
-
 // lib/screens/entry_form_screen.dart
 import 'dart:io';
 import 'package:datastock/Theme/app_theme.dart';
+import 'package:datastock/Utils/app_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -90,7 +90,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
 
   // Auto-generate title from first 3 words (only for new text entries)
   void _onTextChanged() {
-    if (isEditMode || _titleManuallyEdited || _activeType != ValueType.text) return;
+    if (isEditMode || _titleManuallyEdited || _activeType != ValueType.text)
+      return;
 
     final text = _textController.text.trim();
     if (text.isEmpty) {
@@ -125,13 +126,14 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       if (_activeType == ValueType.text) {
         final text = _textController.text.trim();
         if (text.isEmpty) {
-          _showSnack('Please write something');
+          AppMessaging.showToast('Please write something');
           return;
         }
         final words = text.split(RegExp(r'\s+'));
         title = words.take(3).join(' ');
       } else {
-        title = '${_activeType.name.toUpperCase()} ${DateTime.now().toString().substring(0, 16)}';
+        title =
+            '${_activeType.name.toUpperCase()} ${DateTime.now().toString().substring(0, 16)}';
       }
     }
 
@@ -139,13 +141,13 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     if (_activeType == ValueType.text) {
       value = _textController.text.trim();
       if (value.isEmpty) {
-        _showSnack('Please write something');
+        AppMessaging.showToast('Please write something');
         return;
       }
     } else {
       value = _filePath ?? '';
       if (value.isEmpty) {
-        _showSnack('Please select a file');
+        AppMessaging.showToast('Please select a file');
         return;
       }
     }
@@ -162,7 +164,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       }
 
       final generalCategory = categoryProvider.categories.firstWhere(
-            (cat) => cat.name.toLowerCase() == 'general',
+        (cat) => cat.name.toLowerCase() == 'general',
         orElse: () => categoryProvider.categories.first,
       );
       categoryId = generalCategory.id;
@@ -200,7 +202,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     }
 
     final generalExists = categoryProvider.categories.any(
-          (cat) => cat.name.toLowerCase() == 'general',
+      (cat) => cat.name.toLowerCase() == 'general',
     );
     if (!generalExists) {
       await categoryProvider.addCategory('General');
@@ -222,23 +224,12 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     }
   }
 
-  void _showSnack(String msg) {
-    Fluttertoast.showToast(
-      msg: msg,
-      toastLength: Toast.LENGTH_SHORT,
-      gravity: ToastGravity.BOTTOM,
-      backgroundColor: AppColors.textHint,
-      textColor: Colors.white,
-      fontSize: 14.0,
-    );
-  }
-
   // ================= CHIP HANDLER =================
 
   void _onChipTap(ValueType type) async {
     //In edit mode, don't allow changing media types
     if (isEditMode && type != _activeType) {
-      _showSnack('Cannot change type when editing');
+      AppMessaging.showToast('Cannot change type when editing');
       return;
     }
 
@@ -284,12 +275,14 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: Colors.white),
-              title: const Text('Camera', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Camera', style: TextStyle(color: Colors.white)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo, color: Colors.white),
-              title: const Text('Gallery', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Gallery', style: TextStyle(color: Colors.white)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             const SizedBox(height: 16),
@@ -305,7 +298,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       if (img != null) {
         setState(() => _filePath = img.path);
         if (!isEditMode && !_titleManuallyEdited) {
-          _titleController.text = 'Photo ${DateTime.now().toString().substring(11, 16)}';
+          _titleController.text =
+              'Photo ${DateTime.now().toString().substring(11, 16)}';
         }
       }
     } else if (type == ValueType.video) {
@@ -313,7 +307,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       if (vid != null) {
         setState(() => _filePath = vid.path);
         if (!isEditMode && !_titleManuallyEdited) {
-          _titleController.text = 'Video ${DateTime.now().toString().substring(11, 16)}';
+          _titleController.text =
+              'Video ${DateTime.now().toString().substring(11, 16)}';
         }
       }
     }
@@ -391,7 +386,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
             child: GestureDetector(
               onTap: _showCategoryPicker,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2C2C2E),
                   borderRadius: BorderRadius.circular(25),
@@ -422,7 +418,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.arrow_drop_down, size: 20, color: Colors.white70),
+                    const Icon(Icons.arrow_drop_down,
+                        size: 20, color: Colors.white70),
                   ],
                 ),
               ),
@@ -521,8 +518,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
             color: AppColors.textHint,
             fontSize: 14,
             fontWeight: FontWeight.w400,
-          )
-          ,
+          ),
           border: InputBorder.none,
         ),
       );

@@ -12,6 +12,7 @@ import '../models/key_value_entry.dart';
 import '../models/value_type.dart';
 import '../providers/entry_provider.dart';
 import '../providers/category_provider.dart';
+import '../services/analytics_service.dart';
 import 'add_entry_screen.dart';
 
 class EntryDetailModal extends StatelessWidget {
@@ -34,6 +35,15 @@ class EntryDetailModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Log detail view
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final analyticsService = context.read<AnalyticsService>();
+      analyticsService.logStickyDetailView(
+        stickyId: entry.id,
+        type: entry.valueType,
+      );
+    });
+
     final color = _getColorForValueType(entry.valueType);
     final categoryProvider = context.watch<CategoryProvider>();
     final category = categoryProvider.getCategoryById(entry.categoryId);
@@ -211,11 +221,23 @@ class EntryDetailModal extends StatelessWidget {
   Future<void> _copyToClipboard(BuildContext context) async {
     try {
       if (entry.valueType == ValueType.text) {
-        // Copy text content
         await Clipboard.setData(ClipboardData(text: entry.value));
+
+        // Log analytics
+        final analyticsService = context.read<AnalyticsService>();
+        await analyticsService.logStickyCopy(
+          stickyId: entry.id,
+          type: entry.valueType,
+        );
       } else if (entry.valueType == ValueType.image) {
-        // For images, copy the file path (you can enhance this to copy actual image data)
         await Clipboard.setData(ClipboardData(text: 'Image: ${entry.key}'));
+
+        // Log analytics
+        final analyticsService = context.read<AnalyticsService>();
+        await analyticsService.logStickyCopy(
+          stickyId: entry.id,
+          type: entry.valueType,
+        );
       }
     } catch (e) {
       print("Error in Clipboard: ${e.toString()}");
@@ -225,19 +247,25 @@ class EntryDetailModal extends StatelessWidget {
   Future<void> _shareContent(BuildContext context) async {
     try {
       if (entry.valueType == ValueType.text) {
-        // Share text content
-        await Share.share(
-          entry.value,
-          subject: entry.key,
+        await Share.share(entry.value, subject: entry.key);
+
+        // Log analytics
+        final analyticsService = context.read<AnalyticsService>();
+        await analyticsService.logStickyShare(
+          stickyId: entry.id,
+          type: entry.valueType,
         );
       } else if (entry.valueType == ValueType.image) {
-        // Share image file
         if (entry.value.isNotEmpty && File(entry.value).existsSync()) {
-          await Share.shareXFiles(
-            [XFile(entry.value)],
-            text: entry.key,
+          await Share.shareXFiles([XFile(entry.value)], text: entry.key);
+
+          // Log analytics
+          final analyticsService = context.read<AnalyticsService>();
+          await analyticsService.logStickyShare(
+            stickyId: entry.id,
+            type: entry.valueType,
           );
-        } else {}
+        }
       }
     } catch (e) {
       print("Error on Sharing: ${e.toString()}");

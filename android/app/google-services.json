@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "607126685173",
+    "project_id": "stickies-ace0f",
+    "storage_bucket": "stickies-ace0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:607126685173:android:41156f6adc40be9b78ccbc",
+        "android_client_info": {
+          "package_name": "com.utsav.stickies"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJwb_OyR-iG1Yj996EQeNbQm5frcs4R-M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

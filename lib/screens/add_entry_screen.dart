@@ -125,15 +125,23 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     if (_selectedCategoryId != null) {
       categoryId = _selectedCategoryId!;
     } else {
+      // Ensure General category exists
       if (categoryProvider.categories.isEmpty) {
         await categoryProvider.addCategory('General');
         await Future.delayed(const Duration(milliseconds: 100));
-        categoryProvider.loadCategories();
+        await categoryProvider.loadCategories();
       }
 
       final generalCategory = categoryProvider.categories.firstWhere(
         (cat) => cat.name.toLowerCase() == 'general',
-        orElse: () => categoryProvider.categories.first,
+        orElse: () {
+          // If no General category, use first available or create one
+          if (categoryProvider.categories.isNotEmpty) {
+            return categoryProvider.categories.first;
+          }
+          // This shouldn't happen, but fallback
+          throw Exception('No categories available');
+        },
       );
       categoryId = generalCategory.id;
     }
@@ -159,14 +167,15 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     }
   }
 
-  // ================= CATEGORY SELECTION MODAL =================
+  // ================= CATEGORY SELECTION PICKER =================
 
   Future<void> _showCategoryPicker() async {
     final categoryProvider = context.read<CategoryProvider>();
 
+    // Ensure General category exists
     if (categoryProvider.categories.isEmpty) {
       await categoryProvider.addCategory('General');
-      categoryProvider.loadCategories();
+      await categoryProvider.loadCategories();
     }
 
     final generalExists = categoryProvider.categories.any(
@@ -174,7 +183,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     );
     if (!generalExists) {
       await categoryProvider.addCategory('General');
-      categoryProvider.loadCategories();
+      await categoryProvider.loadCategories();
     }
 
     final result = await showModalBottomSheet<Map<String, String>>(

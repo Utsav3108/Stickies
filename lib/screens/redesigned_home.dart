@@ -27,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isSearching = false;
 
   @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -57,7 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Consumer3<CategoryProvider, EntryProvider, SettingsProvider>(
-      builder: (context, categoryProvider, entryProvider, settingsProvider, child) {
+      builder:
+          (context, categoryProvider, entryProvider, settingsProvider, child) {
         final settings = settingsProvider.settings;
         final categories = categoryProvider.categories;
 
@@ -67,26 +74,26 @@ class _HomeScreenState extends State<HomeScreen> {
             backgroundColor: Colors.black,
             title: _isSearching
                 ? TextField(
-              controller: _searchController,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                hintText: 'Search notes...',
-                hintStyle: TextStyle(color: Colors.white60),
-                border: InputBorder.none,
-              ),
-              onChanged: (value) {
-                entryProvider.setSearchQuery(value);
-              },
-            )
+                    controller: _searchController,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: 'Search notes...',
+                      hintStyle: TextStyle(color: Colors.white60),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (value) {
+                      entryProvider.setSearchQuery(value);
+                    },
+                  )
                 : const Text(
-              'Stickies',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+                    'Stickies',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
             leading: Builder(
               builder: (context) => IconButton(
                 icon: const Icon(Icons.menu, color: Colors.white),
@@ -142,7 +149,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDrawer(CategoryProvider categoryProvider, EntryProvider entryProvider) {
+  Widget _buildDrawer(
+      CategoryProvider categoryProvider, EntryProvider entryProvider) {
     final categories = categoryProvider.visibleCategories;
 
     return Drawer(
@@ -216,14 +224,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(color: Colors.white, fontSize: 16),
                     ),
                     trailing: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white24,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '$count',
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
                       ),
                     ),
                     selected: _selectedCategoryId == category.id,
@@ -240,7 +250,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const Divider(color: Colors.white24),
             ListTile(
-              leading: const Icon(Icons.add_circle_outline, color: Color(0xFFA4F291)),
+              leading: const Icon(Icons.add_circle_outline,
+                  color: Color(0xFFA4F291)),
               title: const Text(
                 'New Category',
                 style: TextStyle(color: Color(0xFFA4F291), fontSize: 16),
@@ -330,28 +341,30 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     if (entry.isHidden)
-                      const Icon(Icons.visibility_off, size: 16, color: Colors.black54),
+                      const Icon(Icons.visibility_off,
+                          size: 16, color: Colors.black54),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Expanded(
                   child: entry.isHidden
                       ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.lock, size: 32, color: Colors.black38),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Hidden',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black.withOpacity(0.5),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.lock,
+                                  size: 32, color: Colors.black38),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Hidden',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black.withOpacity(0.5),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  )
+                        )
                       : _buildNoteContent(entry),
                 ),
               ],
@@ -462,7 +475,8 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            child:
+                const Text('Cancel', style: TextStyle(color: Colors.white70)),
           ),
           TextButton(
             onPressed: () {

@@ -8,7 +8,7 @@
 
 
     <application
-        android:label="data_stock"
+        android:label="Stickies"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

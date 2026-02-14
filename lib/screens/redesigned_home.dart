@@ -116,17 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   });
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.settings, color: Colors.white),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
-                    ),
-                  );
-                },
-              ),
             ],
           ),
           drawer: _buildDrawer(categoryProvider, entryProvider),
